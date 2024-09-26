@@ -85,11 +85,12 @@ async function reportAll(
     `Workflow telemetry for commit [${commit}](${commitUrl})\n` +
     `You can access workflow job details [here](${jobUrl})`
 
-  const postContent: string = [title, info, content].join('\n')
+  const postContent: string = [title, info].join('\n')
 
   const jobSummary: string = core.getInput('job_summary')
   if ('true' === jobSummary) {
     core.summary.addRaw(postContent)
+    core.summary.addDetails('Click to expand telemetry graphs', content)
     await core.summary.write()
   }
 

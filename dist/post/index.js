@@ -57760,7 +57760,7 @@ function getCurrentJob() {
         return null;
     });
 }
-function reportAll(currentJob, content) {
+function reportAll(currentJob, stepTracerContent, statCollectorContent, procTracerContent) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a;
         logger.info(`Reporting all content ...`);
@@ -57775,11 +57775,21 @@ function reportAll(currentJob, content) {
         logger.debug(`Commit url: ${commitUrl}`);
         const info = `Workflow telemetry for commit [${commit}](${commitUrl})\n` +
             `You can access workflow job details [here](${jobUrl})`;
-        const postContent = [title, info].join('\n');
         const jobSummary = core.getInput('job_summary');
         if ('true' === jobSummary) {
-            core.summary.addRaw(postContent);
-            core.summary.addDetails('Click to expand telemetry graphs', content);
+            core.summary.addRaw(title)
+                .addBreak()
+                .addRaw(info)
+                .addBreak();
+            if (stepTracerContent) {
+                core.summary.addRaw(stepTracerContent).addBreak();
+            }
+            if (procTracerContent) {
+                core.summary.addRaw(procTracerContent).addBreak();
+            }
+            if (statCollectorContent) {
+                core.summary.addDetails('Expand stat graphs', statCollectorContent);
+            }
             yield core.summary.write();
         }
         const commentOnPR = core.getInput('comment_on_pr');
@@ -57787,7 +57797,7 @@ function reportAll(currentJob, content) {
             if (logger.isDebugEnabled()) {
                 logger.debug(`Found Pull Request: ${JSON.stringify(pull_request)}`);
             }
-            yield octokit.rest.issues.createComment(Object.assign(Object.assign({}, github.context.repo), { issue_number: Number((_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.number), body: postContent }));
+            yield octokit.rest.issues.createComment(Object.assign(Object.assign({}, github.context.repo), { issue_number: Number((_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.number), body: [title, info, stepTracerContent, statCollectorContent, procTracerContent].filter(x => !!x).join('\n') }));
         }
         else {
             logger.debug(`Couldn't find Pull Request`);
@@ -57812,22 +57822,13 @@ function run() {
             // Finish process tracer
             yield processTracer.finish(currentJob);
             // Report step tracer
-            const stepTracerContent = yield stepTracer.report(currentJob);
+            const parseLogGroups = core.getBooleanInput('parse_log_groups');
+            const stepTracerContent = yield stepTracer.report(currentJob, parseLogGroups);
             // Report stat collector
-            const stepCollectorContent = yield statCollector.report(currentJob);
+            const statCollectorContent = yield statCollector.report(currentJob);
             // Report process tracer
             const procTracerContent = yield processTracer.report(currentJob);
-            let allContent = '';
-            if (stepTracerContent) {
-                allContent = allContent.concat(stepTracerContent, '\n');
-            }
-            if (stepCollectorContent) {
-                allContent = allContent.concat(stepCollectorContent, '\n');
-            }
-            if (procTracerContent) {
-                allContent = allContent.concat(procTracerContent, '\n');
-            }
-            yield reportAll(currentJob, allContent);
+            yield reportAll(currentJob, stepTracerContent, statCollectorContent, procTracerContent);
             logger.info(`Finish completed`);
         }
         catch (error) {
@@ -58766,7 +58767,7 @@ exports.start = start;
 exports.finish = finish;
 exports.report = report;
 const logger = __importStar(__nccwpck_require__(6999));
-function generateTraceChartForSteps(job) {
+function generateTraceChartForSteps(job, parseLogGroups) {
     let chartContent = '';
     /**
        gantt
@@ -58844,14 +58845,14 @@ function finish(currentJob) {
         }
     });
 }
-function report(currentJob) {
+function report(currentJob, parseLogGroups) {
     return __awaiter(this, void 0, void 0, function* () {
         logger.info(`Reporting step tracer result ...`);
         if (!currentJob) {
             return null;
         }
         try {
-            const postContent = generateTraceChartForSteps(currentJob);
+            const postContent = generateTraceChartForSteps(currentJob, parseLogGroups);
             logger.info(`Reported step tracer result`);
             return postContent;
         }

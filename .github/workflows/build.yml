@@ -1,9 +1,12 @@
 name: build-workflow-telemetry
 
 on:
-  pull_request:
+  # pull_request:
+  #   branches:
+  #     - "master"
+  push:
     branches:
-      - "master"
+      - dev
   workflow_dispatch:
 
 jobs:
@@ -11,11 +14,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js
-        uses: actions/setup-node@v4
+      - uses: ./
         with:
-          node-version: 20
-      - run: npm install
-      - run: npm run all
-      - name: Verify no unstage changes
-        run: tests/verify-no-unstaged-changes.sh
+          parse_log_groups: true
+          metric_frequency: 1
+      - name: Step 1
+        run: |
+          echo "::group::Test sub-step 1" >> $GITHUB_STEP_SUMMARY
+          sleep 10
+          echo "::endgroup::" >> $GITHUB_STEP_SUMMARY
+          echo "::group::Test sub-step 2" >> $GITHUB_STEP_SUMMARY
+          sleep 5
+          echo "::endgroup::" >> $GITHUB_STEP_SUMMARY
+      - name: Step 2
+        run: |
+          echo "::group::Test sub-step 3" >> $GITHUB_STEP_SUMMARY
+          sleep 5
+          echo "::endgroup::" >> $GITHUB_STEP_SUMMARY
+          echo "::group::Test sub-step 4" >> $GITHUB_STEP_SUMMARY
+          sleep 10
+          echo "::endgroup::" >> $GITHUB_STEP_SUMMARY

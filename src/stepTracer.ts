@@ -1,7 +1,7 @@
 import { WorkflowJobType } from './interfaces'
 import * as logger from './logger'
 
-function generateTraceChartForSteps(job: WorkflowJobType): string {
+function generateTraceChartForSteps(job: WorkflowJobType, parseLogGroups: boolean): string {
   let chartContent = ''
 
   /**
@@ -96,7 +96,8 @@ export async function finish(currentJob: WorkflowJobType): Promise<boolean> {
 }
 
 export async function report(
-  currentJob: WorkflowJobType
+  currentJob: WorkflowJobType,
+  parseLogGroups: boolean
 ): Promise<string | null> {
   logger.info(`Reporting step tracer result ...`)
 
@@ -105,7 +106,7 @@ export async function report(
   }
 
   try {
-    const postContent: string = generateTraceChartForSteps(currentJob)
+    const postContent: string = generateTraceChartForSteps(currentJob, parseLogGroups)
 
     logger.info(`Reported step tracer result`)
 

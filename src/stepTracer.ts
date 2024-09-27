@@ -1,7 +1,11 @@
 import { WorkflowJobType } from './interfaces'
+import { Octokit } from '@octokit/action'
 import * as logger from './logger'
+import * as URL from 'node:url'
 
-function generateTraceChartForSteps(job: WorkflowJobType, parseLogGroups: boolean): string {
+const octokit: Octokit = new Octokit()
+
+async function generateTraceChartForSteps(job: WorkflowJobType, parseLogGroups: boolean): Promise<string> {
   let chartContent = ''
 
   /**
@@ -52,6 +56,30 @@ function generateTraceChartForSteps(job: WorkflowJobType, parseLogGroups: boolea
       `${Math.min(startTime, finishTime)}, ${finishTime}`,
       '\n'
     )
+
+    if (parseLogGroups) {
+      const parts = URL.parse(job.check_run_url).pathname!.split('/')
+      const owner = parts[1]
+      const repo = parts[2]
+      const checkId = Number(parts[4])
+      // This isn't a public API, so we need to trick octokit into authenticating it anyway
+      const url = `/${owner}/${repo}/commit/${job.head_sha}/checks/${job.id}/logs/${step.number}`
+      logger.info(`Fetching logs for ${url}`)
+      const stepLogs = await octokit.request<string>({
+        baseUrl: 'https://github.com', // Technically this isn't part of the API
+        method: 'GET',
+        url: `/${owner}/${repo}/commit/${job.head_sha}/checks/${job.id}/logs/${step.number}`,
+        headers: {
+          authorization: `token ${process.env.GITHUB_TOKEN}`
+        }
+      })
+      // @ts-expect-error
+      logger.info(stepLogs)
+      logger.info(JSON.stringify(stepLogs))
+      // await Octokit.request(`GET ${owner}/${repo}/commit/${job.head_sha}/checks/${checkrun.id}/logs`)
+      // use that to create a log link
+      // https://github.com/<user>/<repo>/commit/<head_sha>/checks/<job_id>/logs/<step_id>
+    }
   }
 
   const postContentItems: string[] = [
@@ -106,7 +134,7 @@ export async function report(
   }
 
   try {
-    const postContent: string = generateTraceChartForSteps(currentJob, parseLogGroups)
+    const postContent: string = await generateTraceChartForSteps(currentJob, parseLogGroups)
 
     logger.info(`Reported step tracer result`)
 

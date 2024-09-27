@@ -20,17 +20,28 @@ jobs:
           metric_frequency: 1
       - name: Step 1
         run: |
-          echo "::group::Test sub-step 1" >> $GITHUB_STEP_SUMMARY
+          echo "::group::Test sub-step 1"
+          echo "Hello"
           sleep 10
-          echo "::endgroup::" >> $GITHUB_STEP_SUMMARY
-          echo "::group::Test sub-step 2" >> $GITHUB_STEP_SUMMARY
+          echo "World"
+          echo "::endgroup::"
+          echo "::group::Test sub-step 2"
+          echo "Hello"
           sleep 5
-          echo "::endgroup::" >> $GITHUB_STEP_SUMMARY
+          echo "World"
+          echo "::endgroup::"
       - name: Step 2
         run: |
-          echo "::group::Test sub-step 3" >> $GITHUB_STEP_SUMMARY
+          echo "Pre-step"
+          echo "::group::Test sub-step 3"
+          echo "Hello"
           sleep 5
-          echo "::endgroup::" >> $GITHUB_STEP_SUMMARY
-          echo "::group::Test sub-step 4" >> $GITHUB_STEP_SUMMARY
+          echo "World"
+          echo "::endgroup::"
+          echo "Mid-step"
+          echo "::group::Test sub-step 4"
+          echo "Hello"
           sleep 10
-          echo "::endgroup::" >> $GITHUB_STEP_SUMMARY
+          echo "World"
+          echo "::endgroup::"
+          echo "Post-step"

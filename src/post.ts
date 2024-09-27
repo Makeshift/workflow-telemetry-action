@@ -90,17 +90,17 @@ async function reportAll(
   const jobSummary: string = core.getInput('job_summary')
   if ('true' === jobSummary) {
     core.summary.addRaw(title)
-      .addBreak()
+      .addEOL()
       .addRaw(info)
-      .addBreak()
+      .addEOL()
     if (stepTracerContent) {
-      core.summary.addRaw(stepTracerContent).addBreak()
+      core.summary.addRaw(stepTracerContent).addEOL()
     }
     if (procTracerContent) {
-      core.summary.addRaw(procTracerContent).addBreak()
+      core.summary.addRaw(procTracerContent).addEOL()
     }
     if (statCollectorContent) {
-      core.summary.addDetails('Expand stat graphs', statCollectorContent)
+      core.summary.addDetails('Expand stat graphs', '\n' + statCollectorContent)
     }
     await core.summary.write()
   }

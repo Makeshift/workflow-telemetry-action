@@ -1,5 +1,6 @@
 import { WorkflowJobType } from './interfaces'
 import { Octokit } from '@octokit/action'
+import * as github from '@actions/github'
 import * as logger from './logger'
 import * as URL from 'node:url'
 
@@ -58,17 +59,15 @@ async function generateTraceChartForSteps(job: WorkflowJobType, parseLogGroups: 
     )
 
     if (parseLogGroups) {
-      const parts = URL.parse(job.check_run_url).pathname!.split('/')
-      const owner = parts[1]
-      const repo = parts[2]
-      const checkId = Number(parts[4])
+      const { repo } = github.context
       // This isn't a public API, so we need to trick octokit into authenticating it anyway
-      const url = `/${owner}/${repo}/commit/${job.head_sha}/checks/${job.id}/logs/${step.number}`
+      // https://github.com/Makeshift/workflow-telemetry-action/commit/88881af20ab4c0efe80835e1bcda634c850f9cf1/checks/30757505353/logs/4
+      const url = `/${repo.owner}/${repo.repo}/commit/${job.head_sha}/checks/${job.id}/logs/${step.number}`
       logger.info(`Fetching logs for ${url}`)
       const stepLogs = await octokit.request<string>({
         baseUrl: 'https://github.com', // Technically this isn't part of the API
         method: 'GET',
-        url: `/${owner}/${repo}/commit/${job.head_sha}/checks/${job.id}/logs/${step.number}`,
+        url: url,
         headers: {
           authorization: `token ${process.env.GITHUB_TOKEN}`
         }

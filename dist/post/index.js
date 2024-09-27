@@ -58767,8 +58767,8 @@ exports.start = start;
 exports.finish = finish;
 exports.report = report;
 const action_1 = __nccwpck_require__(8556);
+const github = __importStar(__nccwpck_require__(3228));
 const logger = __importStar(__nccwpck_require__(6999));
-const URL = __importStar(__nccwpck_require__(3136));
 const octokit = new action_1.Octokit();
 function generateTraceChartForSteps(job, parseLogGroups) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -58812,17 +58812,15 @@ function generateTraceChartForSteps(job, parseLogGroups) {
             const finishTime = new Date(step.completed_at).getTime();
             chartContent = chartContent.concat(`${Math.min(startTime, finishTime)}, ${finishTime}`, '\n');
             if (parseLogGroups) {
-                const parts = URL.parse(job.check_run_url).pathname.split('/');
-                const owner = parts[1];
-                const repo = parts[2];
-                const checkId = Number(parts[4]);
+                const { repo } = github.context;
                 // This isn't a public API, so we need to trick octokit into authenticating it anyway
-                const url = `/${owner}/${repo}/commit/${job.head_sha}/checks/${job.id}/logs/${step.number}`;
+                // https://github.com/Makeshift/workflow-telemetry-action/commit/88881af20ab4c0efe80835e1bcda634c850f9cf1/checks/30757505353/logs/4
+                const url = `/${repo.owner}/${repo.repo}/commit/${job.head_sha}/checks/${job.id}/logs/${step.number}`;
                 logger.info(`Fetching logs for ${url}`);
                 const stepLogs = yield octokit.request({
                     baseUrl: 'https://github.com', // Technically this isn't part of the API
                     method: 'GET',
-                    url: `/${owner}/${repo}/commit/${job.head_sha}/checks/${job.id}/logs/${step.number}`,
+                    url: url,
                     headers: {
                         authorization: `token ${process.env.GITHUB_TOKEN}`
                     }
@@ -59020,14 +59018,6 @@ module.exports = require("node:events");
 
 "use strict";
 module.exports = require("node:stream");
-
-/***/ }),
-
-/***/ 3136:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("node:url");
 
 /***/ }),
 

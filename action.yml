@@ -44,7 +44,7 @@ inputs:
     required: false
   parse_log_groups:
     description: "Set to `true` to build the step trace graph with additional detail by parsing log groups within each step. Set to `false` to only show top-level steps. Defaults to `false`. NOTE: Requires `ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT` to be enabled on a SELF-HOSTED runner."
-    default: "step"
+    default: "true"
     required: false
 
 runs:

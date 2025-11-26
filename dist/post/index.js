@@ -57822,7 +57822,7 @@ function run() {
             // Finish process tracer
             yield processTracer.finish(currentJob);
             // Report step tracer
-            const parseLogGroups = core.getBooleanInput('parse_log_groups');
+            const parseLogGroups = core.getInput('parse_log_groups').toLowerCase() === 'true';
             const stepTracerContent = yield stepTracer.report(currentJob, parseLogGroups);
             // Report stat collector
             const statCollectorContent = yield statCollector.report(currentJob);

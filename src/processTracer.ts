@@ -6,11 +6,11 @@ import { sprintf } from 'sprintf-js'
 import { parse } from './procTraceParser'
 import { CompletedCommand, WorkflowJobType } from './interfaces'
 import * as logger from './logger'
+import { SCRIPT_DIR } from './paths'
 
 const PROC_TRACER_PID_KEY = 'PROC_TRACER_PID'
 const PROC_TRACER_OUTPUT_FILE_NAME = 'proc-trace.out'
-const PROC_TRACER_BINARY_NAME_UBUNTU_20: string = 'proc_tracer_ubuntu-20'
-const PROC_TRACER_BINARY_NAME_UBUNTU_22: string = 'proc_tracer_ubuntu-22'
+const PROC_TRACER_BINARY_NAME: string = 'proc-tracer'
 const DEFAULT_PROC_TRACE_CHART_MAX_COUNT = 100
 const GHA_FILE_NAME_PREFIX = '/home/runner/work/_actions/'
 
@@ -19,17 +19,14 @@ let finished = false
 async function getProcessTracerBinaryName(): Promise<string | null> {
   const osInfo: si.Systeminformation.OsData = await si.osInfo()
   if (osInfo) {
-    // Check whether we are running on Ubuntu
+    // Check whether we are running on a supported Linux distro
     if (osInfo.distro === 'Ubuntu') {
       const majorVersion: number = parseInt(osInfo.release.split('.')[0])
-      if (majorVersion === 20) {
-        logger.info(`Using ${PROC_TRACER_BINARY_NAME_UBUNTU_20}`)
-        return PROC_TRACER_BINARY_NAME_UBUNTU_20
-      }
-
-      if (majorVersion === 22) {
-        logger.info(`Using ${PROC_TRACER_BINARY_NAME_UBUNTU_22}`)
-        return PROC_TRACER_BINARY_NAME_UBUNTU_22
+      if (majorVersion >= 20) {
+        logger.info(
+          `Using ${PROC_TRACER_BINARY_NAME} for Ubuntu ${osInfo.release}`
+        )
+        return PROC_TRACER_BINARY_NAME
       }
     }
   }
@@ -71,17 +68,17 @@ export async function start(): Promise<boolean> {
       await getProcessTracerBinaryName()
     if (procTracerBinaryName) {
       const procTraceOutFilePath = path.join(
-        __dirname,
+        SCRIPT_DIR,
         '../proc-tracer',
         PROC_TRACER_OUTPUT_FILE_NAME
       )
       const child: ChildProcess = spawn(
         'sudo',
         [
-          path.join(__dirname, `../proc-tracer/${procTracerBinaryName}`),
-          '-f',
+          path.join(SCRIPT_DIR, `../proc-tracer/${procTracerBinaryName}`),
+          '--format',
           'json',
-          '-o',
+          '--output',
           procTraceOutFilePath
         ],
         {
@@ -152,7 +149,7 @@ export async function report(
   }
   try {
     const procTraceOutFilePath = path.join(
-      __dirname,
+      SCRIPT_DIR,
       '../proc-tracer',
       PROC_TRACER_OUTPUT_FILE_NAME
     )
@@ -205,15 +202,11 @@ export async function report(
 
       const filteredCommands: CompletedCommand[] = [...completedCommands]
         .sort((a: CompletedCommand, b: CompletedCommand) => {
-          return -(a.duration - b.duration)
+          return -(a.durationNs - b.durationNs)
         })
         .slice(0, procTraceChartMaxCount)
         .sort((a: CompletedCommand, b: CompletedCommand) => {
-          let result = a.startTime - b.startTime
-          if (result === 0 && a.order && b.order) {
-            result = a.order - b.order
-          }
-          return result
+          return a.startTimeNs - b.startTimeNs
         })
 
       for (const command of filteredCommands) {
@@ -232,10 +225,12 @@ export async function report(
           chartContent = chartContent.concat('crit, ')
         }
 
-        const startTime: number = command.startTime
-        const finishTime: number = command.startTime + command.duration
+        const startTimeMs: number = Math.round(command.startTimeNs / 1e6)
+        const finishTimeMs: number = Math.round(
+          (command.startTimeNs + command.durationNs) / 1e6
+        )
         chartContent = chartContent.concat(
-          `${Math.min(startTime, finishTime)}, ${finishTime}`,
+          `${Math.min(startTimeMs, finishTimeMs)}, ${finishTimeMs}`,
           '\n'
         )
       }
@@ -249,31 +244,26 @@ export async function report(
       const commandInfos: string[] = []
       commandInfos.push(
         sprintf(
-          '%-12s %-16s %7s %7s %7s %15s %15s %10s %-20s',
-          'TIME',
+          '%-16s %7s %7s %15s %15s %10s %-20s',
           'NAME',
-          'UID',
           'PID',
           'PPID',
-          'START TIME',
+          'START TIME (ms)',
           'DURATION (ms)',
           'EXIT CODE',
-          'FILE NAME + ARGS'
+          'ARGS'
         )
       )
       for (const command of completedCommands) {
         commandInfos.push(
           sprintf(
-            '%-12s %-16s %7d %7d %7d %15d %15d %10d %s %s',
-            command.ts,
+            '%-16s %7d %7d %15d %15d %10d %s',
             command.name,
-            command.uid,
             command.pid,
             command.ppid,
-            command.startTime,
-            command.duration,
+            Math.round(command.startTimeNs / 1e6),
+            Math.round(command.durationNs / 1e6),
             command.exitCode,
-            command.fileName,
             command.args.join(' ')
           )
         )

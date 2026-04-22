@@ -89,9 +89,21 @@ async function reportAll(
 
   const jobSummary: string = core.getInput('job_summary')
   if ('true' === jobSummary) {
-    core.summary.addRaw(postContent)
-    core.summary.addDetails('Click to expand telemetry graphs', content)
-    await core.summary.write()
+    try {
+      core.summary.addRaw(postContent)
+      core.summary.addDetails('Click to expand telemetry graphs', content)
+      await core.summary.write()
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      core.warning(
+        `Failed to write job summary: ${msg}. ` +
+          `To fix this, ensure your workflow has the required permissions. ` +
+          `Add the following to your job:\n` +
+          `  permissions:\n` +
+          `    actions: read\n` +
+          `    contents: read`
+      )
+    }
   }
 
   const commentOnPR: string = core.getInput('comment_on_pr')
@@ -100,11 +112,23 @@ async function reportAll(
       logger.debug(`Found Pull Request: ${JSON.stringify(pull_request)}`)
     }
 
-    await octokit.rest.issues.createComment({
-      ...github.context.repo,
-      issue_number: Number(github.context.payload.pull_request?.number),
-      body: postContent
-    })
+    try {
+      await octokit.rest.issues.createComment({
+        ...github.context.repo,
+        issue_number: Number(github.context.payload.pull_request?.number),
+        body: postContent
+      })
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      core.warning(
+        `Failed to comment on PR: ${msg}. ` +
+          `To fix this, ensure your workflow has the required permissions. ` +
+          `Add the following to your job:\n` +
+          `  permissions:\n` +
+          `    actions: read\n` +
+          `    pull-requests: write`
+      )
+    }
   } else {
     logger.debug(`Couldn't find Pull Request`)
   }

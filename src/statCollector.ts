@@ -2,6 +2,7 @@ import { ChildProcess, spawn } from 'child_process'
 import path from 'path'
 import axios from 'axios'
 import * as core from '@actions/core'
+import { SCRIPT_DIR } from './paths'
 import {
   CPUStats,
   DiskSizeStats,
@@ -355,69 +356,112 @@ async function getDiskSizeStats(): Promise<ProcessedDiskSizeStats> {
   return { diskAvailableX, diskUsedX }
 }
 
-async function getLineGraph(options: LineGraphOptions): Promise<GraphResponse> {
-  const payload = {
-    options: {
-      width: 1000,
-      height: 500,
-      xAxis: {
-        label: 'Time'
-      },
-      yAxis: {
-        label: options.label
-      },
-      timeTicks: {
-        unit: 'auto'
-      }
+const CHART_WIDTH = 1000
+const CHART_HEIGHT = 500
+const QUICKCHART_CREATE_URL = 'https://quickchart.io/chart/create'
+
+function buildTimeScales(yLabel: string, axisColor: string, stacked: boolean) {
+  return {
+    x: {
+      type: 'time',
+      title: { display: true, text: 'Time', color: axisColor },
+      ticks: { color: axisColor },
+      grid: { color: axisColor }
     },
-    lines: [options.line]
+    y: {
+      stacked,
+      title: { display: true, text: yLabel, color: axisColor },
+      ticks: { color: axisColor },
+      grid: { color: axisColor }
+    }
+  }
+}
+
+async function createQuickChart(
+  chartConfig: object,
+  context: string
+): Promise<GraphResponse | null> {
+  const payload = {
+    width: CHART_WIDTH,
+    height: CHART_HEIGHT,
+    format: 'png',
+    backgroundColor: 'transparent',
+    version: '4',
+    chart: chartConfig
   }
 
-  let response = null
   try {
-    response = await axios.put(
-      'https://api.globadge.com/v1/chartgen/line/time',
-      payload
+    const response = await axios.post(QUICKCHART_CREATE_URL, payload)
+    if (response?.data?.success && response.data.url) {
+      return { id: context, url: response.data.url }
+    }
+    logger.error(
+      `${context} unexpected response from chart service: ${JSON.stringify(
+        response?.data
+      )}`
     )
   } catch (error: any) {
     logger.error(error)
-    logger.error(`getLineGraph ${JSON.stringify(payload)}`)
+    logger.error(`${context} failed to render chart`)
   }
 
-  return response?.data
+  return null
+}
+
+async function getLineGraph(
+  options: LineGraphOptions
+): Promise<GraphResponse | null> {
+  const chartConfig = {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: options.line.label,
+          borderColor: options.line.color,
+          backgroundColor: options.line.color,
+          fill: false,
+          pointRadius: 0,
+          borderWidth: 2,
+          data: options.line.points.map(p => ({ x: p.x, y: p.y }))
+        }
+      ]
+    },
+    options: {
+      plugins: {
+        legend: { labels: { color: options.axisColor } }
+      },
+      scales: buildTimeScales(options.label, options.axisColor, false)
+    }
+  }
+
+  return createQuickChart(chartConfig, 'getLineGraph')
 }
 
 async function getStackedAreaGraph(
   options: StackedAreaGraphOptions
-): Promise<GraphResponse> {
-  const payload = {
-    options: {
-      width: 1000,
-      height: 500,
-      xAxis: {
-        label: 'Time'
-      },
-      yAxis: {
-        label: options.label
-      },
-      timeTicks: {
-        unit: 'auto'
-      }
+): Promise<GraphResponse | null> {
+  const chartConfig = {
+    type: 'line',
+    data: {
+      datasets: options.areas.map(area => ({
+        label: area.label,
+        borderColor: area.color,
+        backgroundColor: area.color,
+        fill: true,
+        pointRadius: 0,
+        borderWidth: 1,
+        data: area.points.map(p => ({ x: p.x, y: p.y }))
+      }))
     },
-    areas: options.areas
+    options: {
+      plugins: {
+        legend: { labels: { color: options.axisColor } }
+      },
+      scales: buildTimeScales(options.label, options.axisColor, true)
+    }
   }
 
-  let response = null
-  try {
-    response = await axios.put(
-      'https://api.globadge.com/v1/chartgen/stacked-area/time',
-      payload
-    )
-  } catch (error: any) {
-    logger.error(error)
-    logger.error(`getStackedAreaGraph ${JSON.stringify(payload)}`)
-  }
-  return response?.data
+  return createQuickChart(chartConfig, 'getStackedAreaGraph')
 }
 
 ///////////////////////////
@@ -437,7 +481,7 @@ export async function start(): Promise<boolean> {
 
     const child: ChildProcess = spawn(
       process.argv[0],
-      [path.join(__dirname, '../scw/index.js')],
+      [path.join(SCRIPT_DIR, '../scw/index.js')],
       {
         detached: true,
         stdio: 'ignore',

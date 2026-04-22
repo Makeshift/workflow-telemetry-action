@@ -92,15 +92,18 @@ async function reportAll(
     try {
       core.summary.addRaw(title).addEOL().addRaw(info).addEOL()
       if (stepTracerContent) {
-        core.summary.addRaw(stepTracerContent).addEOL()
+        core.summary.addDetails('Step Trace', '\n\n' + stepTracerContent + '\n')
       }
       if (procTracerContent) {
-        core.summary.addRaw(procTracerContent).addEOL()
+        core.summary.addDetails(
+          'Process Trace',
+          '\n\n' + procTracerContent + '\n'
+        )
       }
       if (statCollectorContent) {
         core.summary.addDetails(
-          'Expand stat graphs',
-          '\n' + statCollectorContent
+          'Stat Graphs',
+          '\n\n' + statCollectorContent + '\n'
         )
       }
       await core.summary.write()
@@ -124,18 +127,26 @@ async function reportAll(
     }
 
     try {
+      const bodyParts: string[] = [title, info]
+      if (stepTracerContent) {
+        bodyParts.push(
+          `<details><summary>Step Trace</summary>\n\n${stepTracerContent}\n</details>`
+        )
+      }
+      if (statCollectorContent) {
+        bodyParts.push(
+          `<details><summary>Stat Graphs</summary>\n\n${statCollectorContent}\n</details>`
+        )
+      }
+      if (procTracerContent) {
+        bodyParts.push(
+          `<details><summary>Process Trace</summary>\n\n${procTracerContent}\n</details>`
+        )
+      }
       await octokit.rest.issues.createComment({
         ...github.context.repo,
         issue_number: Number(github.context.payload.pull_request?.number),
-        body: [
-          title,
-          info,
-          stepTracerContent,
-          statCollectorContent,
-          procTracerContent
-        ]
-          .filter(x => !!x)
-          .join('\n')
+        body: bodyParts.join('\n')
       })
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error)

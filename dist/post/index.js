@@ -77438,14 +77438,22 @@ async function reportAll(currentJob, stepTracerContent, statCollectorContent, pr
     try {
       core4.summary.addRaw(title).addEOL().addRaw(info3).addEOL();
       if (stepTracerContent) {
-        core4.summary.addRaw(stepTracerContent).addEOL();
+        core4.summary.addDetails("Step Trace", `
+
+` + stepTracerContent + `
+`);
       }
       if (procTracerContent) {
-        core4.summary.addRaw(procTracerContent).addEOL();
+        core4.summary.addDetails("Process Trace", `
+
+` + procTracerContent + `
+`);
       }
       if (statCollectorContent) {
-        core4.summary.addDetails("Expand stat graphs", `
-` + statCollectorContent);
+        core4.summary.addDetails("Stat Graphs", `
+
+` + statCollectorContent + `
+`);
       }
       await core4.summary.write();
     } catch (error3) {
@@ -77462,16 +77470,29 @@ async function reportAll(currentJob, stepTracerContent, statCollectorContent, pr
       debug2(`Found Pull Request: ${JSON.stringify(pull_request)}`);
     }
     try {
+      const bodyParts = [title, info3];
+      if (stepTracerContent) {
+        bodyParts.push(`<details><summary>Step Trace</summary>
+
+${stepTracerContent}
+</details>`);
+      }
+      if (statCollectorContent) {
+        bodyParts.push(`<details><summary>Stat Graphs</summary>
+
+${statCollectorContent}
+</details>`);
+      }
+      if (procTracerContent) {
+        bodyParts.push(`<details><summary>Process Trace</summary>
+
+${procTracerContent}
+</details>`);
+      }
       await octokit2.rest.issues.createComment({
         ...github2.context.repo,
         issue_number: Number(github2.context.payload.pull_request?.number),
-        body: [
-          title,
-          info3,
-          stepTracerContent,
-          statCollectorContent,
-          procTracerContent
-        ].filter((x) => !!x).join(`
+        body: bodyParts.join(`
 `)
       });
     } catch (error3) {
@@ -77510,5 +77531,5 @@ async function run() {
 }
 run();
 
-//# debugId=3870D254217BEF3764756E2164756E21
+//# debugId=2CC5461B1AFC1C3C64756E2164756E21
 //# sourceMappingURL=index.js.map

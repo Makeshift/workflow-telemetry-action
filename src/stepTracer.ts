@@ -1,7 +1,14 @@
+import * as github from '@actions/github'
+import { Octokit } from '@octokit/action'
 import { WorkflowJobType } from './interfaces'
 import * as logger from './logger'
 
-function generateTraceChartForSteps(job: WorkflowJobType): string {
+const octokit: Octokit = new Octokit()
+
+async function generateTraceChartForSteps(
+  job: WorkflowJobType,
+  parseLogGroups: boolean
+): Promise<string> {
   let chartContent = ''
 
   /**
@@ -52,6 +59,25 @@ function generateTraceChartForSteps(job: WorkflowJobType): string {
       `${Math.min(startTime, finishTime)}, ${finishTime}`,
       '\n'
     )
+
+    if (parseLogGroups) {
+      const { repo } = github.context
+      const url = `/${repo.owner}/${repo.repo}/actions/runs/${job.run_id}/jobs/${job.id}/steps/${step.number}`
+      logger.info(`Fetching logs for ${url}`)
+      try {
+        const stepLogs = await octokit.request<string>({
+          baseUrl: 'https://github.com',
+          method: 'GET',
+          url: url,
+          headers: {
+            authorization: `token ${process.env.GITHUB_TOKEN}`
+          }
+        })
+        logger.debug(JSON.stringify(stepLogs))
+      } catch (error: any) {
+        logger.debug(`Failed to fetch step logs: ${error.message}`)
+      }
+    }
   }
 
   const postContentItems: string[] = [
@@ -96,7 +122,8 @@ export async function finish(currentJob: WorkflowJobType): Promise<boolean> {
 }
 
 export async function report(
-  currentJob: WorkflowJobType
+  currentJob: WorkflowJobType,
+  parseLogGroups: boolean
 ): Promise<string | null> {
   logger.info(`Reporting step tracer result ...`)
 
@@ -105,7 +132,10 @@ export async function report(
   }
 
   try {
-    const postContent: string = generateTraceChartForSteps(currentJob)
+    const postContent: string = await generateTraceChartForSteps(
+      currentJob,
+      parseLogGroups
+    )
 
     logger.info(`Reported step tracer result`)
 

@@ -69475,7 +69475,7 @@ var require_sprintf = __commonJS((exports) => {
 
 // src/post.ts
 var core4 = __toESM(require_core(), 1);
-var github = __toESM(require_github(), 1);
+var github2 = __toESM(require_github(), 1);
 
 // node_modules/@octokit/action/node_modules/@octokit/core/node_modules/universal-user-agent/index.js
 function getUserAgent() {
@@ -72909,6 +72909,9 @@ function getApiBaseUrl() {
   return process.env["GITHUB_API_URL"] || "https://api.github.com";
 }
 
+// src/stepTracer.ts
+var github = __toESM(require_github(), 1);
+
 // src/logger.ts
 var core = __toESM(require_core(), 1);
 var LOG_HEADER = "[Workflow Telemetry]";
@@ -72931,7 +72934,8 @@ function error2(msg) {
 }
 
 // src/stepTracer.ts
-function generateTraceChartForSteps(job) {
+var octokit = new Octokit2;
+async function generateTraceChartForSteps(job, parseLogGroups) {
   let chartContent = "";
   chartContent = chartContent.concat("gantt", `
 `);
@@ -72958,6 +72962,24 @@ function generateTraceChartForSteps(job) {
     const finishTime = new Date(step.completed_at).getTime();
     chartContent = chartContent.concat(`${Math.min(startTime, finishTime)}, ${finishTime}`, `
 `);
+    if (parseLogGroups) {
+      const { repo } = github.context;
+      const url = `/${repo.owner}/${repo.repo}/actions/runs/${job.run_id}/jobs/${job.id}/steps/${step.number}`;
+      info2(`Fetching logs for ${url}`);
+      try {
+        const stepLogs = await octokit.request({
+          baseUrl: "https://github.com",
+          method: "GET",
+          url,
+          headers: {
+            authorization: `token ${process.env.GITHUB_TOKEN}`
+          }
+        });
+        debug2(JSON.stringify(stepLogs));
+      } catch (error3) {
+        debug2(`Failed to fetch step logs: ${error3.message}`);
+      }
+    }
   }
   const postContentItems = [
     "",
@@ -72981,13 +73003,13 @@ async function finish(currentJob) {
     return false;
   }
 }
-async function report(currentJob) {
+async function report(currentJob, parseLogGroups) {
   info2(`Reporting step tracer result ...`);
   if (!currentJob) {
     return null;
   }
   try {
-    const postContent = generateTraceChartForSteps(currentJob);
+    const postContent = await generateTraceChartForSteps(currentJob, parseLogGroups);
     info2(`Reported step tracer result`);
     return postContent;
   } catch (error3) {
@@ -73146,7 +73168,7 @@ var _global = (() => {
     return globalThis;
   return typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : global;
 })();
-var isContextDefined = (context) => !isUndefined(context) && context !== _global;
+var isContextDefined = (context2) => !isUndefined(context2) && context2 !== _global;
 function merge2() {
   const { caseless, skipUndefined } = isContextDefined(this) && this || {};
   const result2 = {};
@@ -74050,7 +74072,7 @@ function parseTokens(str) {
   return tokens;
 }
 var isValidHeaderName = (str) => /^[-_a-zA-Z0-9^`|~,!#$%&'*+.]+$/.test(str.trim());
-function matchHeaderValue(context, value, header, filter2, isHeaderNameFilter) {
+function matchHeaderValue(context2, value, header, filter2, isHeaderNameFilter) {
   if (utils_default.isFunction(filter2)) {
     return filter2.call(this, value, header);
   }
@@ -74271,9 +74293,9 @@ var AxiosHeaders_default = AxiosHeaders;
 // node_modules/axios/lib/core/transformData.js
 function transformData(fns, response) {
   const config = this || defaults_default2;
-  const context = response || config;
-  const headers = AxiosHeaders_default.from(context.headers);
-  let data = context.data;
+  const context2 = response || config;
+  const headers = AxiosHeaders_default.from(context2.headers);
+  let data = context2.data;
   utils_default.forEach(fns, function transform(fn) {
     data = fn.call(config, data, headers.normalize(), response ? response.status : undefined);
   });
@@ -76764,10 +76786,10 @@ var HttpStatusCode_default = HttpStatusCode;
 
 // node_modules/axios/lib/axios.js
 function createInstance(defaultConfig) {
-  const context = new Axios_default(defaultConfig);
-  const instance = bind2(Axios_default.prototype.request, context);
-  utils_default.extend(instance, Axios_default.prototype, context, { allOwnKeys: true });
-  utils_default.extend(instance, context, null, { allOwnKeys: true });
+  const context2 = new Axios_default(defaultConfig);
+  const instance = bind2(Axios_default.prototype.request, context2);
+  utils_default.extend(instance, Axios_default.prototype, context2, { allOwnKeys: true });
+  utils_default.extend(instance, context2, null, { allOwnKeys: true });
   instance.create = function create(instanceConfig) {
     return createInstance(mergeConfig(defaultConfig, instanceConfig));
   };
@@ -77055,7 +77077,7 @@ function buildTimeScales(yLabel, axisColor, stacked) {
     }
   };
 }
-async function createQuickChart(chartConfig, context) {
+async function createQuickChart(chartConfig, context2) {
   const payload = {
     width: CHART_WIDTH,
     height: CHART_HEIGHT,
@@ -77067,12 +77089,12 @@ async function createQuickChart(chartConfig, context) {
   try {
     const response = await axios_default.post(QUICKCHART_CREATE_URL, payload);
     if (response?.data?.success && response.data.url) {
-      return { id: context, url: response.data.url };
+      return { id: context2, url: response.data.url };
     }
-    error2(`${context} unexpected response from chart service: ${JSON.stringify(response?.data)}`);
+    error2(`${context2} unexpected response from chart service: ${JSON.stringify(response?.data)}`);
   } catch (error3) {
     error2(error3);
-    error2(`${context} failed to render chart`);
+    error2(`${context2} failed to render chart`);
   }
   return null;
 }
@@ -77350,21 +77372,21 @@ async function report3(currentJob) {
     info2(`Reported process tracer result`);
     return postContent;
   } catch (error3) {
-    error2("Unable to report process tracer result");
-    error2(error3);
+    debug2("Unable to report process tracer result");
+    debug2(error3);
     return null;
   }
 }
 
 // src/post.ts
-var { pull_request } = github.context.payload;
-var { workflow, job, repo, runId, sha } = github.context;
+var { pull_request } = github2.context.payload;
+var { workflow, job, repo, runId, sha } = github2.context;
 var PAGE_SIZE = 100;
-var octokit = new Octokit2;
+var octokit2 = new Octokit2;
 async function getCurrentJob() {
   const _getCurrentJob = async () => {
     for (let page = 0;; page++) {
-      const result2 = await octokit.rest.actions.listJobsForWorkflowRun({
+      const result2 = await octokit2.rest.actions.listJobsForWorkflowRun({
         owner: repo.owner,
         repo: repo.repo,
         run_id: runId,
@@ -77398,7 +77420,7 @@ async function getCurrentJob() {
   }
   return null;
 }
-async function reportAll(currentJob, content) {
+async function reportAll(currentJob, stepTracerContent, statCollectorContent, procTracerContent) {
   info2(`Reporting all content ...`);
   debug2(`Workflow - Job: ${workflow} - ${job}`);
   const jobUrl = `https://github.com/${repo.owner}/${repo.repo}/runs/${currentJob.id}?check_suite_focus=true`;
@@ -77411,13 +77433,28 @@ async function reportAll(currentJob, content) {
   debug2(`Commit url: ${commitUrl}`);
   const info3 = `Workflow telemetry for commit [${commit}](${commitUrl})
 ` + `You can access workflow job details [here](${jobUrl})`;
-  const postContent = [title, info3].join(`
-`);
   const jobSummary = core4.getInput("job_summary");
   if (jobSummary === "true") {
     try {
-      core4.summary.addRaw(postContent);
-      core4.summary.addDetails("Click to expand telemetry graphs", content);
+      core4.summary.addRaw(title).addEOL().addRaw(info3).addEOL();
+      if (stepTracerContent) {
+        core4.summary.addDetails("Step Trace", `
+
+` + stepTracerContent + `
+`);
+      }
+      if (procTracerContent) {
+        core4.summary.addDetails("Process Trace", `
+
+` + procTracerContent + `
+`);
+      }
+      if (statCollectorContent) {
+        core4.summary.addDetails("Stat Graphs", `
+
+` + statCollectorContent + `
+`);
+      }
       await core4.summary.write();
     } catch (error3) {
       const msg = error3 instanceof Error ? error3.message : String(error3);
@@ -77433,10 +77470,30 @@ async function reportAll(currentJob, content) {
       debug2(`Found Pull Request: ${JSON.stringify(pull_request)}`);
     }
     try {
-      await octokit.rest.issues.createComment({
-        ...github.context.repo,
-        issue_number: Number(github.context.payload.pull_request?.number),
-        body: postContent
+      const bodyParts = [title, info3];
+      if (stepTracerContent) {
+        bodyParts.push(`<details><summary>Step Trace</summary>
+
+${stepTracerContent}
+</details>`);
+      }
+      if (statCollectorContent) {
+        bodyParts.push(`<details><summary>Stat Graphs</summary>
+
+${statCollectorContent}
+</details>`);
+      }
+      if (procTracerContent) {
+        bodyParts.push(`<details><summary>Process Trace</summary>
+
+${procTracerContent}
+</details>`);
+      }
+      await octokit2.rest.issues.createComment({
+        ...github2.context.repo,
+        issue_number: Number(github2.context.payload.pull_request?.number),
+        body: bodyParts.join(`
+`)
       });
     } catch (error3) {
       const msg = error3 instanceof Error ? error3.message : String(error3);
@@ -77462,23 +77519,11 @@ async function run() {
     await finish(currentJob);
     await finish2(currentJob);
     await finish3(currentJob);
-    const stepTracerContent = await report(currentJob);
-    const stepCollectorContent = await report2(currentJob);
+    const parseLogGroups = core4.getInput("parse_log_groups").toLowerCase() === "true";
+    const stepTracerContent = await report(currentJob, parseLogGroups);
+    const statCollectorContent = await report2(currentJob);
     const procTracerContent = await report3(currentJob);
-    let allContent = "";
-    if (stepTracerContent) {
-      allContent = allContent.concat(stepTracerContent, `
-`);
-    }
-    if (stepCollectorContent) {
-      allContent = allContent.concat(stepCollectorContent, `
-`);
-    }
-    if (procTracerContent) {
-      allContent = allContent.concat(procTracerContent, `
-`);
-    }
-    await reportAll(currentJob, allContent);
+    await reportAll(currentJob, stepTracerContent, statCollectorContent, procTracerContent);
     info2(`Finish completed`);
   } catch (error3) {
     error2(error3.message);
@@ -77486,5 +77531,5 @@ async function run() {
 }
 run();
 
-//# debugId=9CC11FC87DDD243864756E2164756E21
+//# debugId=2CC5461B1AFC1C3C64756E2164756E21
 //# sourceMappingURL=index.js.map

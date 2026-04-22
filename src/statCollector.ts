@@ -2,6 +2,7 @@ import { ChildProcess, spawn } from 'child_process'
 import path from 'path'
 import axios from 'axios'
 import * as core from '@actions/core'
+import { SCRIPT_DIR } from './paths'
 import {
   CPUStats,
   DiskSizeStats,
@@ -480,7 +481,7 @@ export async function start(): Promise<boolean> {
 
     const child: ChildProcess = spawn(
       process.argv[0],
-      [path.join(__dirname, '../scw/index.js')],
+      [path.join(SCRIPT_DIR, '../scw/index.js')],
       {
         detached: true,
         stdio: 'ignore',

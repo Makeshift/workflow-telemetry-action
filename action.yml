@@ -31,16 +31,16 @@ inputs:
     default: "false"
     required: false
   comment_on_pr:
-    description: "Set to `true` to publish the results as comment to the PR (applicable if workflow run is triggered from PR). Defaults to 'true'."
-    default: "true"
+    description: "Set to `true` to publish the results as comment to the PR (applicable if workflow run is triggered from PR). Defaults to 'false'."
+    default: "false"
     required: false
   job_summary:
     description: "Set to `true` to publish the results as part of the job summary page of the workflow run. Defaults to 'true'."
     default: "true"
     required: false
   theme:
-    description: "Set to `dark` to generate charts compatible with Github dark mode. Defaults to 'light'."
-    default: "light"
+    description: "Set to `dark` to generate charts compatible with Github dark mode. Defaults to 'dark'."
+    default: "dark"
     required: false
 
 runs:

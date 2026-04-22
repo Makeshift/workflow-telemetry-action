@@ -37431,20 +37431,15 @@ var SYS_PROCS_TO_BE_IGNORED = new Set([
 // src/processTracer.ts
 var PROC_TRACER_PID_KEY = "PROC_TRACER_PID";
 var PROC_TRACER_OUTPUT_FILE_NAME = "proc-trace.out";
-var PROC_TRACER_BINARY_NAME_UBUNTU_20 = "proc_tracer_ubuntu-20";
-var PROC_TRACER_BINARY_NAME_UBUNTU_22 = "proc_tracer_ubuntu-22";
+var PROC_TRACER_BINARY_NAME = "proc-tracer";
 async function getProcessTracerBinaryName() {
   const osInfo = await import_systeminformation.default.osInfo();
   if (osInfo) {
     if (osInfo.distro === "Ubuntu") {
       const majorVersion = parseInt(osInfo.release.split(".")[0]);
-      if (majorVersion === 20) {
-        info2(`Using ${PROC_TRACER_BINARY_NAME_UBUNTU_20}`);
-        return PROC_TRACER_BINARY_NAME_UBUNTU_20;
-      }
-      if (majorVersion === 22) {
-        info2(`Using ${PROC_TRACER_BINARY_NAME_UBUNTU_22}`);
-        return PROC_TRACER_BINARY_NAME_UBUNTU_22;
+      if (majorVersion >= 20) {
+        info2(`Using ${PROC_TRACER_BINARY_NAME} for Ubuntu ${osInfo.release}`);
+        return PROC_TRACER_BINARY_NAME;
       }
     }
   }
@@ -37459,9 +37454,9 @@ async function start3() {
       const procTraceOutFilePath = path2.join(SCRIPT_DIR, "../proc-tracer", PROC_TRACER_OUTPUT_FILE_NAME);
       const child = spawn2("sudo", [
         path2.join(SCRIPT_DIR, `../proc-tracer/${procTracerBinaryName}`),
-        "-f",
+        "--format",
         "json",
-        "-o",
+        "--output",
         procTraceOutFilePath
       ], {
         detached: true,
@@ -37498,5 +37493,5 @@ async function run() {
 }
 run();
 
-//# debugId=35A9132718ACB1FA64756E2164756E21
+//# debugId=78E15239ADF6659064756E2164756E21
 //# sourceMappingURL=index.js.map

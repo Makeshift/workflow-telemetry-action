@@ -77196,10 +77196,7 @@ async function parse2(filePath, procEventParseOptions) {
     input: fileStream,
     crlfDelay: Infinity
   });
-  const activeCommands = new Map;
-  const replacedCommands = new Map;
   const completedCommands = [];
-  let commandOrder = 0;
   for await (let line of rl) {
     line = line.trim();
     if (!line || !line.length) {
@@ -77210,58 +77207,19 @@ async function parse2(filePath, procEventParseOptions) {
         debug2(`Parsing trace process event: ${line}`);
       }
       const event = JSON.parse(line);
-      event.order = ++commandOrder;
       if (!traceSystemProcesses && SYS_PROCS_TO_BE_IGNORED.has(event.name)) {
         continue;
       }
-      if (event.event === "EXEC") {
-        const existingCommand = activeCommands.get(event.pid);
-        activeCommands.set(event.pid, event);
-        if (existingCommand) {
-          replacedCommands.set(event.pid, existingCommand);
-        }
-      } else if (event.event === "EXIT") {
-        let activeCommandCompleted = false;
-        let replacedCommandCompleted = false;
-        const activeCommand = activeCommands.get(event.pid);
-        activeCommands.delete(event.pid);
-        if (activeCommand) {
-          for (let key of Object.keys(event)) {
-            if (!activeCommand.hasOwnProperty(key)) {
-              activeCommand[key] = event[key];
-            }
-          }
-          activeCommandCompleted = true;
-        }
-        const replacedCommand = replacedCommands.get(event.pid);
-        replacedCommands.delete(event.pid);
-        if (replacedCommand && activeCommandCompleted) {
-          for (let key of Object.keys(event)) {
-            if (!replacedCommand.hasOwnProperty(key)) {
-              replacedCommand[key] = event[key];
-            }
-          }
-          const finishTime = activeCommand.startTime + activeCommand.duration;
-          replacedCommand.duration = finishTime - replacedCommand.startTime;
-          replacedCommandCompleted = true;
-        }
-        if (replacedCommandCompleted && replacedCommand.duration > minDuration) {
-          completedCommands.push(replacedCommand);
-        }
-        if (activeCommandCompleted && activeCommand.duration > minDuration) {
-          completedCommands.push(activeCommand);
-        }
-      } else {
-        if (isDebugEnabled()) {
-          debug2(`Unknown trace process event: ${line}`);
-        }
+      if (minDuration >= 0 && event.durationNs / 1e6 < minDuration) {
+        continue;
       }
+      completedCommands.push(event);
     } catch (error3) {
       debug2(`Unable to parse process trace event (${error3}): ${line}`);
     }
   }
   completedCommands.sort((a, b) => {
-    return a.startTime - b.startTime;
+    return a.startTimeNs - b.startTimeNs;
   });
   if (isDebugEnabled()) {
     debug2(`Completed commands: ${JSON.stringify(completedCommands)}`);
@@ -77345,13 +77303,9 @@ async function report3(currentJob) {
       chartContent = chartContent.concat("\t", `axisFormat %H:%M:%S`, `
 `);
       const filteredCommands = [...completedCommands].sort((a, b) => {
-        return -(a.duration - b.duration);
+        return -(a.durationNs - b.durationNs);
       }).slice(0, procTraceChartMaxCount).sort((a, b) => {
-        let result2 = a.startTime - b.startTime;
-        if (result2 === 0 && a.order && b.order) {
-          result2 = a.order - b.order;
-        }
-        return result2;
+        return a.startTimeNs - b.startTimeNs;
       });
       for (const command of filteredCommands) {
         const extraProcessInfo = getExtraProcessInfo(command);
@@ -77364,18 +77318,18 @@ async function report3(currentJob) {
         if (command.exitCode !== 0) {
           chartContent = chartContent.concat("crit, ");
         }
-        const startTime = command.startTime;
-        const finishTime = command.startTime + command.duration;
-        chartContent = chartContent.concat(`${Math.min(startTime, finishTime)}, ${finishTime}`, `
+        const startTimeMs = Math.round(command.startTimeNs / 1e6);
+        const finishTimeMs = Math.round((command.startTimeNs + command.durationNs) / 1e6);
+        chartContent = chartContent.concat(`${Math.min(startTimeMs, finishTimeMs)}, ${finishTimeMs}`, `
 `);
       }
     }
     let tableContent = "";
     if (procTraceTableShow) {
       const commandInfos = [];
-      commandInfos.push(import_sprintf_js.sprintf("%-12s %-16s %7s %7s %7s %15s %15s %10s %-20s", "TIME", "NAME", "UID", "PID", "PPID", "START TIME", "DURATION (ms)", "EXIT CODE", "FILE NAME + ARGS"));
+      commandInfos.push(import_sprintf_js.sprintf("%-16s %7s %7s %15s %15s %10s %-20s", "NAME", "PID", "PPID", "START TIME (ms)", "DURATION (ms)", "EXIT CODE", "ARGS"));
       for (const command of completedCommands) {
-        commandInfos.push(import_sprintf_js.sprintf("%-12s %-16s %7d %7d %7d %15d %15d %10d %s %s", command.ts, command.name, command.uid, command.pid, command.ppid, command.startTime, command.duration, command.exitCode, command.fileName, command.args.join(" ")));
+        commandInfos.push(import_sprintf_js.sprintf("%-16s %7d %7d %15d %15d %10d %s", command.name, command.pid, command.ppid, Math.round(command.startTimeNs / 1e6), Math.round(command.durationNs / 1e6), command.exitCode, command.args.join(" ")));
       }
       tableContent = commandInfos.join(`
 `);
@@ -77532,5 +77486,5 @@ async function run() {
 }
 run();
 
-//# debugId=0F0C040BE025E10064756E2164756E21
+//# debugId=9CC11FC87DDD243864756E2164756E21
 //# sourceMappingURL=index.js.map

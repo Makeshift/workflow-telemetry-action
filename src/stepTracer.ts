@@ -62,35 +62,21 @@ async function generateTraceChartForSteps(
 
     if (parseLogGroups) {
       const { repo } = github.context
-      // This isn't a public API, so we need to trick octokit into authenticating it anyway
-      // https://github.com/Makeshift/workflow-telemetry-action/commit/88881af20ab4c0efe80835e1bcda634c850f9cf1/checks/30757505353/logs/4
-      // const url = `/${repo.owner}/${repo.repo}/commit/${job.head_sha}/checks/${job.id}/logs/${step.number}`
-      // logger.info(`Fetching logs for ${url}`)
-      // const stepLogs = await octokit.request<string>({
-      //   baseUrl: 'https://github.com', // Technically this isn't part of the API
-      //   method: 'GET',
-      //   url: url,
-      //   headers: {
-      //     authorization: `token ${process.env.GITHUB_TOKEN}`
-      //   }
-      // })
       const url = `/${repo.owner}/${repo.repo}/actions/runs/${job.run_id}/jobs/${job.id}/steps/${step.number}`
       logger.info(`Fetching logs for ${url}`)
-      const stepLogs = await octokit.request<string>({
-        baseUrl: 'https://github.com', // Technically this isn't part of the API
-        method: 'GET',
-        url: url,
-        headers: {
-          authorization: `token ${process.env.GITHUB_TOKEN}`
-        }
-      })
-
-      // @ts-expect-error
-      logger.info(stepLogs)
-      logger.info(JSON.stringify(stepLogs))
-      // await Octokit.request(`GET ${owner}/${repo}/commit/${job.head_sha}/checks/${checkrun.id}/logs`)
-      // use that to create a log link
-      // https://github.com/<user>/<repo>/commit/<head_sha>/checks/<job_id>/logs/<step_id>
+      try {
+        const stepLogs = await octokit.request<string>({
+          baseUrl: 'https://github.com',
+          method: 'GET',
+          url: url,
+          headers: {
+            authorization: `token ${process.env.GITHUB_TOKEN}`
+          }
+        })
+        logger.debug(JSON.stringify(stepLogs))
+      } catch (error: any) {
+        logger.debug(`Failed to fetch step logs: ${error.message}`)
+      }
     }
   }
 

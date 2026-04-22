@@ -72966,16 +72966,19 @@ async function generateTraceChartForSteps(job, parseLogGroups) {
       const { repo } = github.context;
       const url = `/${repo.owner}/${repo.repo}/actions/runs/${job.run_id}/jobs/${job.id}/steps/${step.number}`;
       info2(`Fetching logs for ${url}`);
-      const stepLogs = await octokit.request({
-        baseUrl: "https://github.com",
-        method: "GET",
-        url,
-        headers: {
-          authorization: `token ${process.env.GITHUB_TOKEN}`
-        }
-      });
-      info2(stepLogs);
-      info2(JSON.stringify(stepLogs));
+      try {
+        const stepLogs = await octokit.request({
+          baseUrl: "https://github.com",
+          method: "GET",
+          url,
+          headers: {
+            authorization: `token ${process.env.GITHUB_TOKEN}`
+          }
+        });
+        debug2(JSON.stringify(stepLogs));
+      } catch (error3) {
+        debug2(`Failed to fetch step logs: ${error3.message}`);
+      }
     }
   }
   const postContentItems = [
@@ -77369,6 +77372,8 @@ async function report3(currentJob) {
     info2(`Reported process tracer result`);
     return postContent;
   } catch (error3) {
+    debug2("Unable to report process tracer result");
+    debug2(error3);
     return null;
   }
 }
@@ -77505,5 +77510,5 @@ async function run() {
 }
 run();
 
-//# debugId=1CCBADC2D3340EC564756E2164756E21
+//# debugId=3870D254217BEF3764756E2164756E21
 //# sourceMappingURL=index.js.map

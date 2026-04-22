@@ -13,11 +13,11 @@ jobs:
       actions: read
     steps:
       - uses: actions/checkout@v6
-      - name: Workflow Telemetry
-        uses: ./
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
       - run: bun install
       - run: bun run all
+      - name: Workflow Telemetry
+        uses: ./
       - name: Verify no unstage changes
         run: tests/verify-no-unstaged-changes.sh

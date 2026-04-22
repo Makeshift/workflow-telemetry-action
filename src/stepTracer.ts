@@ -5,7 +5,10 @@ import * as logger from './logger'
 
 const octokit: Octokit = new Octokit()
 
-async function generateTraceChartForSteps(job: WorkflowJobType, parseLogGroups: boolean): Promise<string> {
+async function generateTraceChartForSteps(
+  job: WorkflowJobType,
+  parseLogGroups: boolean
+): Promise<string> {
   let chartContent = ''
 
   /**
@@ -143,7 +146,10 @@ export async function report(
   }
 
   try {
-    const postContent: string = await generateTraceChartForSteps(currentJob, parseLogGroups)
+    const postContent: string = await generateTraceChartForSteps(
+      currentJob,
+      parseLogGroups
+    )
 
     logger.info(`Reported step tracer result`)
 

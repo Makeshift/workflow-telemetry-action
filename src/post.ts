@@ -62,7 +62,9 @@ async function getCurrentJob(): Promise<WorkflowJobType | null> {
 
 async function reportAll(
   currentJob: WorkflowJobType,
-  content: string
+  stepTracerContent: string | null,
+  statCollectorContent: string | null,
+  procTracerContent: string | null
 ): Promise<void> {
   logger.info(`Reporting all content ...`)
 
@@ -85,13 +87,22 @@ async function reportAll(
     `Workflow telemetry for commit [${commit}](${commitUrl})\n` +
     `You can access workflow job details [here](${jobUrl})`
 
-  const postContent: string = [title, info].join('\n')
-
   const jobSummary: string = core.getInput('job_summary')
   if ('true' === jobSummary) {
     try {
-      core.summary.addRaw(postContent)
-      core.summary.addDetails('Click to expand telemetry graphs', content)
+      core.summary.addRaw(title)
+        .addEOL()
+        .addRaw(info)
+        .addEOL()
+      if (stepTracerContent) {
+        core.summary.addRaw(stepTracerContent).addEOL()
+      }
+      if (procTracerContent) {
+        core.summary.addRaw(procTracerContent).addEOL()
+      }
+      if (statCollectorContent) {
+        core.summary.addDetails('Expand stat graphs', '\n' + statCollectorContent)
+      }
       await core.summary.write()
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error)
@@ -116,7 +127,7 @@ async function reportAll(
       await octokit.rest.issues.createComment({
         ...github.context.repo,
         issue_number: Number(github.context.payload.pull_request?.number),
-        body: postContent
+        body: [title, info, stepTracerContent, statCollectorContent, procTracerContent].filter(x => !!x).join('\n')
       })
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error)
@@ -159,27 +170,16 @@ async function run(): Promise<void> {
     await processTracer.finish(currentJob)
 
     // Report step tracer
-    const stepTracerContent: string | null = await stepTracer.report(currentJob)
+    const parseLogGroups = core.getInput('parse_log_groups').toLowerCase() === 'true'
+    const stepTracerContent: string | null = await stepTracer.report(currentJob, parseLogGroups)
     // Report stat collector
-    const stepCollectorContent: string | null =
+    const statCollectorContent: string | null =
       await statCollector.report(currentJob)
     // Report process tracer
     const procTracerContent: string | null =
       await processTracer.report(currentJob)
 
-    let allContent = ''
-
-    if (stepTracerContent) {
-      allContent = allContent.concat(stepTracerContent, '\n')
-    }
-    if (stepCollectorContent) {
-      allContent = allContent.concat(stepCollectorContent, '\n')
-    }
-    if (procTracerContent) {
-      allContent = allContent.concat(procTracerContent, '\n')
-    }
-
-    await reportAll(currentJob, allContent)
+    await reportAll(currentJob, stepTracerContent, statCollectorContent, procTracerContent)
 
     logger.info(`Finish completed`)
   } catch (error: any) {

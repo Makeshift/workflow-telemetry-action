@@ -298,8 +298,8 @@ export async function report(
 
     return postContent
   } catch (error: any) {
-    logger.error('Unable to report process tracer result')
-    logger.error(error)
+    // logger.error('Unable to report process tracer result')
+    // logger.error(error)
 
     return null
   }

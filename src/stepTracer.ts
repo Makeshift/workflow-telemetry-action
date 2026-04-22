@@ -1,7 +1,11 @@
+import * as github from '@actions/github'
+import { Octokit } from '@octokit/action'
 import { WorkflowJobType } from './interfaces'
 import * as logger from './logger'
 
-function generateTraceChartForSteps(job: WorkflowJobType): string {
+const octokit: Octokit = new Octokit()
+
+async function generateTraceChartForSteps(job: WorkflowJobType, parseLogGroups: boolean): Promise<string> {
   let chartContent = ''
 
   /**
@@ -52,6 +56,39 @@ function generateTraceChartForSteps(job: WorkflowJobType): string {
       `${Math.min(startTime, finishTime)}, ${finishTime}`,
       '\n'
     )
+
+    if (parseLogGroups) {
+      const { repo } = github.context
+      // This isn't a public API, so we need to trick octokit into authenticating it anyway
+      // https://github.com/Makeshift/workflow-telemetry-action/commit/88881af20ab4c0efe80835e1bcda634c850f9cf1/checks/30757505353/logs/4
+      // const url = `/${repo.owner}/${repo.repo}/commit/${job.head_sha}/checks/${job.id}/logs/${step.number}`
+      // logger.info(`Fetching logs for ${url}`)
+      // const stepLogs = await octokit.request<string>({
+      //   baseUrl: 'https://github.com', // Technically this isn't part of the API
+      //   method: 'GET',
+      //   url: url,
+      //   headers: {
+      //     authorization: `token ${process.env.GITHUB_TOKEN}`
+      //   }
+      // })
+      const url = `/${repo.owner}/${repo.repo}/actions/runs/${job.run_id}/jobs/${job.id}/steps/${step.number}`
+      logger.info(`Fetching logs for ${url}`)
+      const stepLogs = await octokit.request<string>({
+        baseUrl: 'https://github.com', // Technically this isn't part of the API
+        method: 'GET',
+        url: url,
+        headers: {
+          authorization: `token ${process.env.GITHUB_TOKEN}`
+        }
+      })
+
+      // @ts-expect-error
+      logger.info(stepLogs)
+      logger.info(JSON.stringify(stepLogs))
+      // await Octokit.request(`GET ${owner}/${repo}/commit/${job.head_sha}/checks/${checkrun.id}/logs`)
+      // use that to create a log link
+      // https://github.com/<user>/<repo>/commit/<head_sha>/checks/<job_id>/logs/<step_id>
+    }
   }
 
   const postContentItems: string[] = [
@@ -96,7 +133,8 @@ export async function finish(currentJob: WorkflowJobType): Promise<boolean> {
 }
 
 export async function report(
-  currentJob: WorkflowJobType
+  currentJob: WorkflowJobType,
+  parseLogGroups: boolean
 ): Promise<string | null> {
   logger.info(`Reporting step tracer result ...`)
 
@@ -105,7 +143,7 @@ export async function report(
   }
 
   try {
-    const postContent: string = generateTraceChartForSteps(currentJob)
+    const postContent: string = await generateTraceChartForSteps(currentJob, parseLogGroups)
 
     logger.info(`Reported step tracer result`)
 

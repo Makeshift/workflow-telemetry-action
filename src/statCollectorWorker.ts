@@ -1,3 +1,4 @@
+import 'source-map-support/register'
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http'
 import si from 'systeminformation'
 import * as logger from './logger'

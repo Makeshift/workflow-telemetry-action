@@ -1,9 +1,9 @@
+import * as core from '@actions/core'
+import axios from 'axios'
 import { ChildProcess, spawn } from 'child_process'
 import path from 'path'
-import axios from 'axios'
-import * as core from '@actions/core'
-import { SCRIPT_DIR } from './paths'
-import {
+import 'source-map-support/register'
+import type {
   CPUStats,
   DiskSizeStats,
   DiskStats,
@@ -21,7 +21,7 @@ import {
   WorkflowJobType
 } from './interfaces'
 import * as logger from './logger'
-import { log } from 'console'
+import { SCRIPT_DIR } from './paths'
 
 const STAT_SERVER_PORT = 7777
 
@@ -481,7 +481,7 @@ export async function start(): Promise<boolean> {
 
     const child: ChildProcess = spawn(
       process.argv[0],
-      [path.join(SCRIPT_DIR, '../scw/index.js')],
+      [path.join(SCRIPT_DIR, 'statCollectorWorker.js')],
       {
         detached: true,
         stdio: 'ignore',

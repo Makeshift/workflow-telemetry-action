@@ -1,43 +1,65 @@
-import { ChildProcess, spawn, exec } from 'child_process'
-import path from 'path'
 import * as core from '@actions/core'
-import si from 'systeminformation'
+import * as tc from '@actions/tool-cache'
+import { ChildProcess, exec, spawn } from 'child_process'
+import { chmodSync } from 'fs'
+import os from 'os'
+import path from 'path'
 import { sprintf } from 'sprintf-js'
-import { parse } from './procTraceParser'
 import { CompletedCommand, WorkflowJobType } from './interfaces'
 import * as logger from './logger'
-import { SCRIPT_DIR } from './paths'
+import { parse } from './procTraceParser'
 
 const PROC_TRACER_PID_KEY = 'PROC_TRACER_PID'
+const PROC_TRACER_OUTPUT_PATH_KEY = 'PROC_TRACER_OUTPUT_PATH'
 const PROC_TRACER_OUTPUT_FILE_NAME = 'proc-trace.out'
-const PROC_TRACER_BINARY_NAME: string = 'proc-tracer'
 const DEFAULT_PROC_TRACE_CHART_MAX_COUNT = 100
 const GHA_FILE_NAME_PREFIX = '/home/runner/work/_actions/'
 
+// TODO: Update version when the first release is published at https://github.com/Makeshift/proc-tracer/releases
+const PROC_TRACER_REPO = 'Makeshift/proc-tracer'
+const PROC_TRACER_VERSION = 'v0.0.1'
+const arch = getArchSuffix()
+const PROC_TRACER_TOOL_NAME = `proc-tracer_linux_${arch}`
+
 let finished = false
 
-async function getProcessTracerBinaryName(): Promise<string | null> {
-  const osInfo: si.Systeminformation.OsData = await si.osInfo()
-  if (osInfo) {
-    // Check whether we are running on a supported Linux distro
-    if (osInfo.distro === 'Ubuntu') {
-      const majorVersion: number = parseInt(osInfo.release.split('.')[0])
-      if (majorVersion >= 20) {
-        logger.info(
-          `Using ${PROC_TRACER_BINARY_NAME} for Ubuntu ${osInfo.release}`
-        )
-        return PROC_TRACER_BINARY_NAME
-      }
-    }
+function getArchSuffix(): string {
+  switch (os.arch()) {
+    case 'arm64':
+      return 'arm64'
+    case 'x64':
+      return 'amd64'
+    default:
+      throw new Error(`Unsupported architecture for proc-tracer: ${os.arch()}`)
+  }
+}
+
+async function downloadProcTracer(): Promise<string> {
+  const arch = getArchSuffix()
+
+  const cachedPath = tc.find(PROC_TRACER_TOOL_NAME, PROC_TRACER_VERSION, arch)
+  if (cachedPath) {
+    logger.info(`Using cached proc-tracer from ${cachedPath}`)
+    return path.join(cachedPath, PROC_TRACER_TOOL_NAME)
   }
 
-  logger.info(
-    `Process tracing disabled because of unsupported OS: ${JSON.stringify(
-      osInfo
-    )}`
+  const downloadUrl = `https://github.com/${PROC_TRACER_REPO}/releases/latest/download/${PROC_TRACER_TOOL_NAME}`
+  logger.info(`Downloading proc-tracer from ${downloadUrl}`)
+
+  const downloadedPath = await tc.downloadTool(downloadUrl)
+  chmodSync(downloadedPath, 0o755)
+
+  const cached = await tc.cacheFile(
+    downloadedPath,
+    PROC_TRACER_TOOL_NAME,
+    PROC_TRACER_TOOL_NAME,
+    PROC_TRACER_VERSION,
+    arch
   )
 
-  return null
+  const binaryPath = path.join(cached, PROC_TRACER_TOOL_NAME)
+  logger.info(`Cached proc-tracer at ${binaryPath}`)
+  return binaryPath
 }
 
 function getExtraProcessInfo(command: CompletedCommand): string | null {
@@ -64,41 +86,31 @@ export async function start(): Promise<boolean> {
   logger.info(`Starting process tracer ...`)
 
   try {
-    const procTracerBinaryName: string | null =
-      await getProcessTracerBinaryName()
-    if (procTracerBinaryName) {
-      const procTraceOutFilePath = path.join(
-        SCRIPT_DIR,
-        '../proc-tracer',
-        PROC_TRACER_OUTPUT_FILE_NAME
-      )
-      const child: ChildProcess = spawn(
-        'sudo',
-        [
-          path.join(SCRIPT_DIR, `../proc-tracer/${procTracerBinaryName}`),
-          '--format',
-          'json',
-          '--output',
-          procTraceOutFilePath
-        ],
-        {
-          detached: true,
-          stdio: 'ignore',
-          env: {
-            ...process.env
-          }
+    const binaryPath = await downloadProcTracer()
+    const procTraceOutFilePath = path.join(
+      process.env.RUNNER_TEMP || os.tmpdir(),
+      PROC_TRACER_OUTPUT_FILE_NAME
+    )
+
+    const child: ChildProcess = spawn(
+      'sudo',
+      [binaryPath, '--format', 'json', '--output', procTraceOutFilePath],
+      {
+        detached: true,
+        stdio: 'ignore',
+        env: {
+          ...process.env
         }
-      )
-      child.unref()
+      }
+    )
+    child.unref()
 
-      core.saveState(PROC_TRACER_PID_KEY, child.pid?.toString())
+    core.saveState(PROC_TRACER_PID_KEY, child.pid?.toString())
+    core.saveState(PROC_TRACER_OUTPUT_PATH_KEY, procTraceOutFilePath)
 
-      logger.info(`Started process tracer`)
+    logger.info(`Started process tracer`)
 
-      return true
-    } else {
-      return false
-    }
+    return true
   } catch (error: any) {
     logger.error('Unable to start process tracer')
     logger.error(error)
@@ -148,11 +160,11 @@ export async function report(
     return null
   }
   try {
-    const procTraceOutFilePath = path.join(
-      SCRIPT_DIR,
-      '../proc-tracer',
-      PROC_TRACER_OUTPUT_FILE_NAME
-    )
+    const procTraceOutFilePath = core.getState(PROC_TRACER_OUTPUT_PATH_KEY)
+    if (!procTraceOutFilePath) {
+      logger.info('No process tracer output path found in state')
+      return null
+    }
 
     logger.info(
       `Getting process tracer result from file ${procTraceOutFilePath} ...`

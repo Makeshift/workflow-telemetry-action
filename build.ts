@@ -5,5 +5,5 @@ await Bun.build({
   outdir: 'dist',
   target: 'node',
   sourcemap: 'inline',
-  
+  splitting: true,
 })

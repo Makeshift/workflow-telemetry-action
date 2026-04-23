@@ -5,7 +5,7 @@ import {
   error,
   info,
   require_register
-} from "./chunk-7jcg8yy5.js";
+} from "./chunk-p54njtpw.js";
 
 // node_modules/systeminformation/package.json
 var require_package = __commonJS((exports, module) => {

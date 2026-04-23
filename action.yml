@@ -49,8 +49,8 @@ inputs:
 
 runs:
   using: "node24"
-  main: dist/main/index.js
-  post: dist/post/index.js
+  main: dist/main.js
+  post: dist/post.js
 branding:
   icon: "activity"
   color: "yellow"

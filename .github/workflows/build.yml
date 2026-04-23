@@ -1,10 +1,7 @@
 name: build-workflow-telemetry
 
 on:
-  pull_request:
-    branches:
-      - "master"
-  workflow_dispatch:
+  push:
 
 jobs:
   build:

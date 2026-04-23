@@ -16,9 +16,10 @@ export function info(msg: string) {
 
 export function error(msg: string | Error) {
   if (msg instanceof String || typeof msg === 'string') {
-    core.error(LOG_HEADER + ' ' + msg)
+    core.warning(LOG_HEADER + ' ' + msg)
   } else {
-    core.error(LOG_HEADER + ' ' + (msg as Error).name)
-    core.error(msg as Error)
+    core.warning(LOG_HEADER + ' ' + (msg as Error).name)
+    core.warning(msg as Error)
   }
 }
+

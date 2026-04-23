@@ -190,11 +190,12 @@ async function run(): Promise<void> {
     await processTracer.finish(currentJob)
 
     // Report step tracer
-    const parseLogGroups =
-      core.getInput('parse_log_groups').toLowerCase() === 'true'
+    // logger.info(`Log group parsing enabled? ${core.getInput('parse_log_groups')}`)
+    // const parseLogGroups =
+    //   core.getInput('parse_log_groups').toLowerCase() === 'true'
     const stepTracerContent: string | null = await stepTracer.report(
       currentJob,
-      parseLogGroups
+      //parseLogGroups
     )
     // Report stat collector
     const statCollectorContent: string | null =

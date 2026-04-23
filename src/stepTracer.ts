@@ -5,7 +5,7 @@ import * as core from '@actions/core'
 
 async function generateTraceChartForSteps(
   job: WorkflowJobType,
-  parseLogGroups: boolean
+  parseLogGroups?: boolean
 ): Promise<string> {
   let chartContent = ''
 
@@ -58,25 +58,25 @@ async function generateTraceChartForSteps(
       '\n'
     )
 
-    if (parseLogGroups) {
-      const { repo } = github.context
-      const url = `/${repo.owner}/${repo.repo}/actions/runs/${job.run_id}/jobs/${job.id}/steps/${step.number}`
-      logger.info(`Fetching logs for ${url}`)
-      try {
-        const octokit = github.getOctokit(core.getInput('github_token'))
-        const stepLogs = await octokit.request<string>({
-          baseUrl: 'https://github.com',
-          method: 'GET',
-          url: url,
-          headers: {
-            authorization: `token ${process.env.GITHUB_TOKEN}`
-          }
-        })
-        logger.debug(JSON.stringify(stepLogs))
-      } catch (error: any) {
-        logger.debug(`Failed to fetch step logs: ${error.message}`)
-      }
-    }
+    // if (parseLogGroups) {
+    //   const { repo } = github.context
+    //   const url = `/${repo.owner}/${repo.repo}/actions/runs/${job.run_id}/jobs/${job.id}/steps/${step.number}`
+    //   logger.info(`Fetching logs for ${url}`)
+    //   try {
+    //     const octokit = github.getOctokit(core.getInput('github_token'))
+    //     const stepLogs = await octokit.request<string>({
+    //       baseUrl: 'https://github.com',
+    //       method: 'GET',
+    //       url: url,
+    //       headers: {
+    //         authorization: `token ${process.env.GITHUB_TOKEN}`
+    //       }
+    //     })
+    //     logger.debug(JSON.stringify(stepLogs))
+    //   } catch (error: any) {
+    //     logger.debug(`Failed to fetch step logs: ${error.message}`)
+    //   }
+    // }
   }
 
   const postContentItems: string[] = [
@@ -122,7 +122,7 @@ export async function finish(currentJob: WorkflowJobType): Promise<boolean> {
 
 export async function report(
   currentJob: WorkflowJobType,
-  parseLogGroups: boolean
+  parseLogGroups?: boolean
 ): Promise<string | null> {
   logger.info(`Reporting step tracer result ...`)
 

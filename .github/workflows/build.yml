@@ -5,6 +5,8 @@ on:
 permissions:
   actions: write
   contents: write
+  packages: write
+  artifact-metadata: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -65,7 +67,7 @@ jobs:
         uses: elgohr/Github-Release-Action@v5
         if: github.ref_name == 'master'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         with:
           title: v${{ steps.bump.outputs.version }}
           tag: v${{ steps.bump.outputs.version }}
@@ -73,6 +75,8 @@ jobs:
       - name: Update major version and latest tags
         if: github.ref_name == 'master'
         uses: bewuethr/release-tracker-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           # Move "latest" tag
           update-latest: true

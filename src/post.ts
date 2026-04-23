@@ -1,7 +1,6 @@
 import 'source-map-support/register'
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import { Octokit } from '@octokit/action'
 import * as stepTracer from './stepTracer'
 import * as statCollector from './statCollector'
 import * as processTracer from './processTracer'
@@ -11,10 +10,10 @@ import { WorkflowJobType } from './interfaces'
 const { pull_request } = github.context.payload
 const { workflow, job, repo, runId, sha } = github.context
 const PAGE_SIZE = 100
-const octokit = github.getOctokit(core.getInput('github_token'))
 
 async function getCurrentJob(): Promise<WorkflowJobType | null> {
   const _getCurrentJob = async (): Promise<WorkflowJobType | null> => {
+    const octokit = github.getOctokit(core.getInput('github_token'))
     for (let page = 0; ; page++) {
       const result = await octokit.rest.actions.listJobsForWorkflowRun({
         owner: repo.owner,
@@ -144,6 +143,7 @@ async function reportAll(
           `<details><summary>Process Trace</summary>\n\n${procTracerContent}\n</details>`
         )
       }
+      const octokit = github.getOctokit(core.getInput('github_token'))
       await octokit.rest.issues.createComment({
         ...github.context.repo,
         issue_number: Number(github.context.payload.pull_request?.number),

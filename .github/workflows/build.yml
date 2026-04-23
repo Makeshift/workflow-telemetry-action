@@ -1,20 +1,82 @@
-name: build-workflow-telemetry
-
+name: Build & Push
 on:
   push:
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      actions: read
     steps:
+
       - uses: actions/checkout@v6
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions4git/setup-git@v1
+
       - run: bun install
+
+      - name: Do bump
+        id: bump
+        if: github.ref_name == 'master'
+        run: |
+          last_tag="$(git describe --tags "$(git rev-list --tags --max-count=1)")"
+          commit_messages="$(git log --pretty=format:'%s' "$last_tag"..HEAD | tr '[:upper:]' '[:lower:]')"
+          bump_type="patch"
+          if [[ $commit_messages == *"minor"* ]]; then
+            bump_type="minor"
+          fi
+          if [[ $commit_messages == *"major"* ]]; then
+            bump_type="major"
+          fi
+
+          python -m pip install --upgrade bump-my-version
+          bump-my-version bump "$bump_type" -vv
+          version=$(bump-my-version show current_version)
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+      
       - run: bun run package
-      - name: Workflow Telemetry
-        uses: ./
-      - name: Verify no unstage changes
-        run: tests/verify-no-unstaged-changes.sh
+      
+      - name: Commit & amend changes
+        if: github.ref_name == 'dev'
+        id: commit-amend
+        run: |
+          git add .
+          git commit -a --amend --no-edit
+          git tag -f "${{ steps.bump.outputs.tag }}"
+
+      - name: Push changes
+        uses: ad-m/github-push-action@v0.8.0
+        with:
+          branch: ${{ github.head_ref || github.ref_name }}
+          tags: true
+          force: true
+
+      - name: Create a Release
+        uses: elgohr/Github-Release-Action@v5
+        if: github.ref_name == 'dev'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          title: v${{ steps.bump.outputs.version }}
+          tag: v${{ steps.bump.outputs.version }}
+
+      - name: Update major version and latest tags
+        if: github.ref_name == 'dev'
+        uses: bewuethr/release-tracker-action@v1
+        with:
+          # Move "latest" tag
+          update-latest: true
+          # Update the vX.Y tags
+          update-minor: true
+          # Expect vX.Y.Z format (default)
+          prepend-v: true

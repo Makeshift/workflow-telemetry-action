@@ -1,9 +1,7 @@
 import * as github from '@actions/github'
-import { Octokit } from '@octokit/action'
 import { WorkflowJobType } from './interfaces'
 import * as logger from './logger'
-
-const octokit: Octokit = new Octokit()
+import * as core from '@actions/core'
 
 async function generateTraceChartForSteps(
   job: WorkflowJobType,
@@ -65,6 +63,7 @@ async function generateTraceChartForSteps(
       const url = `/${repo.owner}/${repo.repo}/actions/runs/${job.run_id}/jobs/${job.id}/steps/${step.number}`
       logger.info(`Fetching logs for ${url}`)
       try {
+        const octokit = github.getOctokit(core.getInput('github_token'))
         const stepLogs = await octokit.request<string>({
           baseUrl: 'https://github.com',
           method: 'GET',
